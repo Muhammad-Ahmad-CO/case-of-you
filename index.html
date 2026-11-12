@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Case of You — A Personal Mystery</title>
+<meta name="description" content="A detective mystery written around you. Your private answers never leave your device. Built with Firebase AI Logic hybrid inference.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js",
+    "firebase/app-check": "https://www.gstatic.com/firebasejs/12.11.0/firebase-app-check.js",
+    "firebase/ai": "https://www.gstatic.com/firebasejs/12.11.0/firebase-ai.js"
+  }
+}
+</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">§</span>
+    <div>
+      <div class="brand-title">The Case of You</div>
+      <div class="brand-sub">A mystery written around you</div>
+    </div>
+  </div>
+  <div class="statusbar">
+    <span id="status-online" class="pill">Checking connection…</span>
+    <span id="status-model" class="pill">Model: not started</span>
+    <button id="btn-ledger" class="btn btn-ghost" type="button">Privacy ledger</button>
+  </div>
+</header>
+
+<main>
+  <!-- SETUP -->
+  <section id="screen-setup" class="screen" hidden>
+    <h1>Before we begin</h1>
+    <p>This game needs a Firebase project and a desktop Chrome browser. The checks below tell you exactly what is missing. Nothing is faked: if a check fails, the game waits.</p>
+    <ul id="setup-list" class="checklist"></ul>
+    <div id="setup-instructions" class="card"></div>
+    <button id="btn-recheck" class="btn btn-primary" type="button">Check again</button>
+  </section>
+
+  <!-- TITLE -->
+  <section id="screen-title" class="screen" hidden>
+    <p class="kicker">The Saltwind Inn &middot; One storm night &middot; One crime</p>
+    <h1 class="display">The Case<br>of You</h1>
+    <p class="lede">A priceless locket has been stolen. The road out is flooded. Five suspects remain inside the inn — and the mystery will be written around <em>you</em>.</p>
+    <div class="how">
+      <div class="how-card"><h2>Personal</h2><p>Five short questions shape the case: your name, your town, your skill, your fear.</p></div>
+      <div class="how-card"><h2>Private</h2><p>Your answers are turned into story on your own device. They never leave it.</p></div>
+      <div class="how-card"><h2>Hybrid</h2><p>On-device AI plays the suspects. Cloud AI weaves the plot and checks it can be solved.</p></div>
+    </div>
+    <button id="btn-begin" class="btn btn-primary btn-large" type="button">Begin the case</button>
+    <p class="fineprint">Best on desktop Chrome 139 or newer. On other browsers the game still plays, using cloud inference.</p>
+  </section>
+
+  <!-- QUESTIONS -->
+  <section id="screen-questions" class="screen" hidden>
+    <h1>Five questions, one mystery</h1>
+    <p>Answer honestly. These answers stay on this device and shape only your story.</p>
+    <form id="form-questions" class="card form">
+      <label>What should the inn call you?
+        <input name="displayName" type="text" autocomplete="off" maxlength="40" required placeholder="Your name">
+      </label>
+      <label>Which town do you call home?
+        <input name="hometown" type="text" autocomplete="off" maxlength="40" required placeholder="Your hometown">
+      </label>
+      <label>One skill you are proud of?
+        <input name="skill" type="text" autocomplete="off" maxlength="60" required placeholder="For example: noticing small details">
+      </label>
+      <label>One fear you admit to?
+        <input name="fear" type="text" autocomplete="off" maxlength="60" required placeholder="For example: dark cellars">
+      </label>
+      <label>Who travels with you?
+        <input name="companion" type="text" autocomplete="off" maxlength="40" required placeholder="A friend, a sibling, no one…">
+      </label>
+      <button class="btn btn-primary" type="submit">Shape my mystery</button>
+    </form>
+    <p class="fineprint">Your raw answers are stored only in this browser's local storage. The cloud only ever sees fictionalized story elements. See the privacy ledger.</p>
+  </section>
+
+  <!-- PERSONALIZING -->
+  <section id="screen-personalizing" class="screen" hidden>
+    <h1>Writing your mystery…</h1>
+    <p id="personalize-status">Warming up the on-device model.</p>
+    <p><span id="personalize-chip" class="chip chip-unknown">Working…</span></p>
+    <p class="fineprint">This step runs on-device whenever the model is available, so your answers never leave this device.</p>
+  </section>
+
+  <!-- BRIEFING -->
+  <section id="screen-briefing" class="screen" hidden>
+    <h1>The case file</h1>
+    <div id="briefing-text" class="card casefile"></div>
+    <h2>The five suspects</h2>
+    <div id="suspect-list" class="suspects"></div>
+    <button id="btn-investigate" class="btn btn-primary btn-large" type="button">Start the investigation</button>
+  </section>
+
+  <!-- PLAY -->
+  <section id="screen-play" class="screen" hidden>
+    <div class="play-grid">
+      <aside class="play-side">
+        <h2>Rooms</h2>
+        <ul id="room-list" class="navlist"></ul>
+        <h2>Suspects</h2>
+        <ul id="suspect-nav" class="navlist"></ul>
+      </aside>
+      <div class="play-main">
+        <div id="scene-text" class="card scene"></div>
+        <div id="dialogue-log" class="dialogue" aria-live="polite"></div>
+        <div id="suggested-questions" class="suggested"></div>
+        <form id="form-ask" class="askbar">
+          <input id="ask-input" type="text" autocomplete="off" maxlength="300" placeholder="Ask a question…" aria-label="Ask a question">
+          <button class="btn btn-primary" type="submit">Ask</button>
+        </form>
+        <div class="play-actions">
+          <button id="btn-search" class="btn btn-secondary" type="button">Search this room</button>
+          <button id="btn-notebook" class="btn btn-secondary" type="button">Case notebook</button>
+          <button id="btn-accuse" class="btn btn-danger" type="button">Present your case</button>
+        </div>
+        <p id="clue-toast" class="clue-toast" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NOTEBOOK -->
+  <section id="screen-notebook" class="screen" hidden>
+    <h1>Case notebook</h1>
+    <div id="notebook-content" class="card"></div>
+    <button id="btn-close-notebook" class="btn btn-primary" type="button">Back to the inn</button>
+  </section>
+
+  <!-- ACCUSATION -->
+  <section id="screen-accusation" class="screen" hidden>
+    <h1>Present your case</h1>
+    <p>Everyone is gathered in the lobby. Name the culprit, the motive, and the three clues that prove it. There is no undo.</p>
+    <form id="form-accuse" class="card form">
+      <label>Who stole the locket?
+        <select id="accuse-culprit" required></select>
+      </label>
+      <label>Why did they do it?
+        <select id="accuse-motive" required></select>
+      </label>
+      <fieldset>
+        <legend>Your three strongest clues</legend>
+        <div id="accuse-clues"></div>
+      </fieldset>
+      <button class="btn btn-danger" type="submit">Present the case</button>
+    </form>
+  </section>
+
+  <!-- ENDING -->
+  <section id="screen-ending" class="screen" hidden>
+    <h1 id="ending-title">The ending</h1>
+    <div id="ending-text" class="card casefile"></div>
+    <div id="ending-summary" class="card"></div>
+    <div class="play-actions">
+      <button id="btn-replay" class="btn btn-primary" type="button">New case, new culprit</button>
+      <button id="btn-title2" class="btn btn-secondary" type="button">Back to title</button>
+    </div>
+  </section>
+</main>
+
+<!-- PRIVACY LEDGER -->
+<aside id="ledger-panel" class="ledger" hidden>
+  <div class="ledger-inner">
+    <h2>Privacy ledger</h2>
+    <p>Every AI call in this game, and where its data went. Your raw answers never leave this device.</p>
+    <table>
+      <thead><tr><th>What</th><th>Ran</th><th>Data sent</th></tr></thead>
+      <tbody id="ledger-rows"></tbody>
+    </table>
+    <button id="btn-close-ledger" class="btn btn-secondary" type="button">Close</button>
+  </div>
+</aside>
+
+<footer>
+  <p><span class="chip chip-device">On-device</span> ran on this device &middot; <span class="chip chip-cloud">Cloud</span> ran in the cloud &middot; All AI inference runs through Firebase AI Logic. No other model APIs are called.</p>
+  <p class="fineprint">The Case of You — built for #BuildHybridAI 2026. Open source under the Apache License 2.0.</p>
+</footer>
+
+<script type="module" src="js/game.js"></script>
+</body>
+</html>
