@@ -143,8 +143,10 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
     is managed client-side (condensed memory + latest line per call),
     because on-device inference supports single-turn generation only.
   - plotter: ONLY_IN_CLOUD — consistency check (structured).
-  - plotterText: ONLY_IN_CLOUD — text generation (endings/briefing prose;
-    currently unused, reserved capacity).
+  - plotterText: ONLY_IN_CLOUD — created, but NOT called by any
+    feature (generateText is likewise uncalled outside ai.js).
+    Reserved capacity pending a wire-or-remove decision; not a
+    working feature and never presented as one.
   - plotterGen: ONLY_IN_CLOUD — mystery generation, with the generation
     schema from §9. Output is validated in code (js/mystery.js) before
     use; invalid output is retried (max 3 attempts) and then the
@@ -180,34 +182,82 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
 Personalizer (on-device, ONLY_ON_DEVICE):
   Input: 5 answers. Output JSON: { alias, hometownEcho, signatureMethod,
   stormDetail, companionCameo } — all strings, no raw answers echoed back.
-  Output is passed through the code scrubber before use (see §7).
+  The prompt enforces strict rules: alias is EXACTLY the player's first
+  name; paraphrase must avoid the answer's own words; hometownEcho must
+  not name the town or include anything that could identify it (no
+  landmarks, rivers, famous places, or local details); one sentence per
+  field; empty answers get neutral text. Output is passed through the
+  code scrubber before use (see §7).
 Dialogue (hybrid, PREFER_ON_DEVICE):
   Input: suspect card + condensed memory (<=6 bullets) + player line +
   story elements. Output JSON: { reply, mood, memoryUpdate, clueRevealed
   (optional string id — omit when no clue is revealed), trustDelta
   (-1|0|+1) }. clueRevealed is accepted only if the id exists in the
   active case and its via includes "ask"; anything else is ignored.
+  The prompt carries an anti-confession guard (under direct accusation
+  the culprit denies, deflects, or demands proof — NEVER confesses or
+  confirms the truth), explicit knowledge limits (a suspect knows only
+  their own secret, the case facts, and the conversation — never other
+  suspects' secrets), and jailbreak resistance. Revealable clues are
+  listed as clue OBJECTS ("id — fact" lines), and clueRevealed may be
+  set only to a clue whose fact the reply actually states. memoryUpdate
+  is constrained to observable facts of THIS exchange only; trustDelta
+  judges warmth only, not whether the detective is right. CASE FACTS
+  use the active case's own crime text when it carries one, falling
+  back to the hand-written crime wording otherwise (see the
+  crime/timeline fields under Mystery generation).
 Mystery generation (cloud, ONLY_IN_CLOUD):
   Input: story elements + setting + room ids (never raw answers).
   Output JSON: { key, culprit, motive, truth, suspects[5], clues[10] }
-  per the frozen shape in js/mystery.js. The validator requires exactly
-  5 suspects / 10 clues, 3 questions per suspect, unique ids, valid
-  rooms/implicates, and at least 3 culprit-implicating clues reachable
-  without dialogue (via "search" or "both"). Up to 3 attempts; then the
-  hand-written case plays and the ledger says so.
+  per the frozen shape in js/mystery.js. The crime is PINNED by the
+  generation prompt ("THE CRIME IS FIXED"): every generated mystery
+  reuses the Harrow Locket theft at the Saltwind Inn — replay variety
+  comes from the culprit, motive, truth, suspects, and clues, not from
+  a new crime (Lead decision for the 16 Nov loop; new crimes would
+  need a coordinated schema + harness + UI change). The validator
+  requires exactly 5 suspects / 10 clues, 3 questions per suspect,
+  unique ids, valid rooms/implicates, and at least 3 culprit-implicating
+  clues reachable without dialogue (via "search" or "both"). The frozen
+  shape also accepts two OPTIONAL fields: `crime` (a non-empty string)
+  and `timeline` (an array of non-empty strings). Missing or null is
+  still valid — prompts then fall back to the hand-written crime and
+  timeline wording; present-but-malformed values are rejected like any
+  other bad field, and the hand-written case plays instead. Honest
+  limit: the generation schema in ai.js is still the 6-property shape
+  (no crime/timeline), so LIVE-generated mysteries do not carry these
+  fields yet and their prompts keep the hand-written fallback; adding
+  them to the schema is blocked pending a coordinated harness update.
+  Up to 3 attempts; then the hand-written case plays and the ledger
+  says so. setActiveCase preserves crime/timeline into the active case
+  when present; absent fields stay absent.
 Consistency check (cloud):
-  Input: active case draft (suspects, culprit, motive, clue list,
-  timeline). Output JSON: { solvable: "yes" | "no", contradictions:
-  string[], fixes: string[] }. The result is shown on the briefing screen
-  and logged in the ledger. A "no" result is displayed honestly; the
-  validator's solvability floor already guarantees the case is playable.
+  Input: active case draft (suspects with their secrets, culprit,
+  motive, truth, clue list with room/via/implicates, timeline). Output
+  JSON: { solvable: "yes" | "no", contradictions: string[], fixes:
+  string[] }. The prompt forbids inventing facts or problems: a
+  contradiction is listed ONLY when two stated facts genuinely
+  conflict, quoting both. It also checks motive fit, secret-vs-secret
+  and secret-vs-truth conflicts, that no single clue states outright
+  who committed the crime, and that the truth explains HOW the crime
+  was committed. The solvability rule generalizes when the case
+  carries its own crime or timeline ("the timeline is consistent with
+  the truth"); otherwise it keeps the hand-written 8–9pm theft-window
+  wording. The result is shown on the briefing screen and logged in
+  the ledger. A "no" result is displayed honestly; the validator's
+  solvability floor already guarantees the case is playable.
 Notebook (hybrid, PREFER_ON_DEVICE):
   Input: found clue texts + condensed memory bullets + trust values from
-  the active case. NEVER the questionnaire answers. Output JSON:
-  { summary, openQuestions: string[] }. On any failure the module throws
-  and the caller renders the notebook deterministically, with an honest
-  note. The inference source is not reported for this call, so the stored
-  source is UNKNOWN — never guessed.
+  the active case, anchored by the active case's crime text (with the
+  hand-written crime wording as fallback). NEVER the questionnaire
+  answers. Output JSON: { summary, openQuestions: string[] }. The
+  prompt frames memory bullets as CLAIMS ("Elsa said..."), never as
+  established facts; trust numbers show only cooperativeness, never
+  evidence of guilt or innocence; the summary must not name a culprit
+  or state the solution; open questions must be concrete next steps
+  answerable by further searching or questioning. On any failure the
+  module throws and the caller renders the notebook deterministically,
+  with an honest note. The inference source is not reported for this
+  call, so the stored source is UNKNOWN — never guessed.
 
 ## 10. Screens
 
@@ -222,6 +272,11 @@ Notebook (hybrid, PREFER_ON_DEVICE):
 9. Ending + case summary + replay
 Persistent: inference chips, online/offline indicator, privacy ledger,
 save/load (localStorage; Firestore sync is a stretch goal, not v1).
+Small screens: the 30rem media block sits LAST in styles.css so its
+heading and topbar scaling actually applies — it previously sat at the
+top of the file, where later base rules overrode it and the small-screen
+scaling never took effect (cascade-order fix, verified by computed-style
+probe at 390px).
 
 ## 11. Test gates (no gate skipped)
 

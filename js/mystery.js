@@ -42,15 +42,21 @@ export function getActiveCase() {
 
 export function setActiveCase(mystery) {
   if (!validateMystery(mystery).ok) return false;
+  const activeMystery = {
+    key: mystery.key,
+    culprit: mystery.culprit,
+    motive: mystery.motive,
+    truth: mystery.truth,
+  };
+  // Optional case wording survives activation when present (the validator
+  // has already checked its shape); absent fields stay absent, and the
+  // prompt builders fall back to the hand-written wording.
+  if (mystery.crime !== undefined && mystery.crime !== null) activeMystery.crime = mystery.crime;
+  if (mystery.timeline !== undefined && mystery.timeline !== null) activeMystery.timeline = mystery.timeline;
   activeCase = {
     suspects: mystery.suspects,
     clues: mystery.clues,
-    mystery: {
-      key: mystery.key,
-      culprit: mystery.culprit,
-      motive: mystery.motive,
-      truth: mystery.truth,
-    },
+    mystery: activeMystery,
   };
   return true;
 }
@@ -63,6 +69,22 @@ export function validateMystery(obj) {
   if (!isNonEmptyString(obj.key)) errors.push("key must be a non-empty string.");
   if (!isNonEmptyString(obj.motive)) errors.push("motive must be a non-empty string.");
   if (!isNonEmptyString(obj.truth)) errors.push("truth must be a non-empty string.");
+
+  // Optional case wording: a generated or draft mystery may describe its
+  // own crime and timeline, so dialogue and consistency prompts can
+  // describe THAT case instead of the hand-written one. Absent (or null)
+  // is valid — prompts fall back to the hand-written wording. Present
+  // but malformed is rejected like every other field: bad model output
+  // falls back to the hand-written case instead of playing with invented
+  // facts. Every mystery valid before this change is still valid.
+  if (obj.crime !== undefined && obj.crime !== null && !isNonEmptyString(obj.crime)) {
+    errors.push("crime must be a non-empty string when present.");
+  }
+  if (obj.timeline !== undefined && obj.timeline !== null) {
+    if (!Array.isArray(obj.timeline) || !obj.timeline.every(isNonEmptyString)) {
+      errors.push("timeline must be an array of non-empty strings when present.");
+    }
+  }
 
   const suspectIds = new Set();
   if (!Array.isArray(obj.suspects) || obj.suspects.length !== 5) {
@@ -198,10 +220,10 @@ export function buildGenerationPrompt(elements) {
 
   return [
     "Write a NEW solvable detective mystery for the game The Case of You.",
-    "Setting: " + SETTING.inn + ". " + SETTING.crime,
+    "THE CRIME IS FIXED — do not invent a different crime. Setting: " + SETTING.inn + ". " + SETTING.crime + " Every suspect, secret, motive, and clue must fit THIS crime, this inn, and this storm night. No other crime, no other location, no other time.",
     "Clues may only use these room ids: " + roomList + ".",
     elementLines.length > 0
-      ? "Weave in these fictionalized story elements (never invent other personal details about the player):\n" + elementLines.join("\n")
+      ? "Weave in these fictionalized story elements into atmosphere and the detective's presence ONLY — never into the culprit's motive, the truth, or any suspect's secret. Never invent other personal details about the player:\n" + elementLines.join("\n")
       : "No personal story elements were provided; keep the mystery neutral.",
     "Return ONLY a JSON object with this exact shape:",
     JSON.stringify(
@@ -235,6 +257,8 @@ export function buildGenerationPrompt(elements) {
       null,
       2
     ),
-    "Rules: exactly 5 suspects and exactly 10 clues; every suspect id and clue id unique; every implicates entry a suspect id from this mystery; each suspect has exactly 3 questions; the culprit must be implicated by at least 3 clues reachable without dialogue (via search or both), so the case is solvable by searching alone.",
+    "STRUCTURE RULES: exactly 5 suspects and exactly 10 clues; every suspect id and clue id unique — use short lowercase ids, never copy placeholder text; every implicates entry a suspect id from this mystery; each suspect has exactly 3 questions; the culprit must be implicated by at least 3 clues reachable without dialogue (via search or both), so the case is solvable by searching alone; use a mix of via values — at least 5 clues via search or both, at most 2 via ask.",
+    "STORY RULES: (1) The truth (1-2 sentences) must explain HOW the culprit committed the fixed crime, WHY (matching the motive exactly), and must be consistent with every clue. (2) No clue may contradict the truth. No suspect's secret may contradict the truth or another suspect's secret about the same fact. (3) No single clue may state outright who committed the crime. (4) Make the five suspects distinct: different roles, voices, secrets, and relationships to the inn. Give each innocent suspect a secret that is NOT the crime — a reason they act guilty while innocent. (5) Every clue text is one concrete sentence of evidence the player reads: specific, no game-meta language. Clues with via ask must state facts a suspect could plausibly reveal in conversation. (6) Each suspect's 3 questions must be things the detective would ask THIS suspect: one about whereabouts, one probing their secret or role, one about the crime — and must not assume facts not in the case. (7) Keep every text field to 1-2 sentences.",
+    "Before returning, check your mystery against EVERY rule above and fix any violation silently. Return only the JSON object.",
   ].join("\n\n");
 }
