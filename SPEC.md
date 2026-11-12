@@ -2,7 +2,7 @@
 
 A personalized detective mystery game for #BuildHybridAI 2026 (Firebase + Devpost).
 One storm night. One inn. One crime. The mystery is written around YOU — and
-your private answers never leave your device.
+your five questionnaire answers are never placed in a cloud-bound prompt.
 
 ## 1. Concept (one paragraph)
 
@@ -79,8 +79,10 @@ The game picks one per playthrough; the consistency check verifies it.
 9. Photograph: young Elsa with the locket's first owner. (Library)
 10. Fireplace ash: a burnt envelope corner with a solicitor's seal. (Lobby)
 
-Each clue has: id, room, text, implicates[], clears[], and a "verified" flag
-set by the consistency check. Clues never contradict the chosen culprit.
+Each clue has: id, room, via ("search" | "ask" | "both"), text, and
+implicates[]. Clues never contradict the chosen culprit. Clue c1 (the guest
+register) is findable by searching AND by interrogation ("both"), so the
+perfect ending is reachable by deterministic play alone (Gate 1 decision).
 
 ## 6. Structure: three acts + endings
 
@@ -93,7 +95,9 @@ set by the consistency check. Clues never contradict the chosen culprit.
   - E2 Right Person, Wrong Why: culprit confesses part, full truth escapes.
   - E3 Wrong Accusation: the real culprit leaves on the morning tide.
   - E4 The Case Goes Cold: player gives up; the inn keeps its secret.
-- Replay: "New case, new culprit" regenerates with a different culprit.
+- Replay: "New case, new culprit" cycles the three hand-written culprit
+  variations. A fresh game (not a replay) may instead ask the cloud
+  plotter to write a new mystery; see §8/§9 for the validation rules.
 
 ## 7. Personalization contract (privacy-first, enforced in code)
 
@@ -101,8 +105,18 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
 - The ONLY_ON_DEVICE personalizer converts answers into story elements:
   alias, hometownEcho, signatureMethod (from skill), stormDetail (from fear),
   companionCameo. Raw answers are stored ONLY in localStorage on the device.
-- The cloud NEVER receives raw answers — only the fictionalized story
-  elements. The privacy ledger UI lists every data flow and its destination.
+- The 5 questionnaire answers are never placed in a cloud-bound prompt by
+  this code. Only the fictionalized story elements are sent in later
+  prompts — and a code scrubber (ai.js scrubElements) replaces any element
+  that echoes a raw answer with neutral text before it can reach a prompt
+  that may fall back to the cloud. The no-verbatim rule is enforced in
+  code, not just in the prompt.
+- The free-text questions the player types while interrogating suspects ARE
+  sent to the model (on-device first, cloud fallback). The UI and the
+  privacy ledger say this plainly; no absolute "the cloud only ever sees
+  fictionalized elements" wording is used anywhere.
+- The privacy ledger UI lists every AI call, including failures, and its
+  destination.
 - If on-device is unavailable, personalization falls back to neutral story
   elements and the UI says so honestly (no silent cloud upload of answers).
 
@@ -112,23 +126,46 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
   Firebase JS SDK 12.11.0 via CDN import map. Deployed on Vercel from GitHub.
 - Backend: Gemini Developer API via `new GoogleAIBackend()` (free to start).
   `getGenerativeModel` is called only after/on a user gesture (a docs
-  requirement for inference modes).
+  requirement for inference modes). Every on-device model must also have
+  `initializeDeviceModel()` called after/on the gesture and before its
+  first query (hybrid Step 6); game.js `ensureModels` calls ai.js
+  `initDeviceModels` right after `createModels`. Init failures are
+  isolated per model, reported in the privacy ledger, and never block
+  the game — the call-site fallbacks handle that model's later calls.
 - Models (Firebase AI Logic):
   - personalizer: ONLY_ON_DEVICE + onDeviceParams responseConstraint —
-    personalization, never leaves device. Throws if on-device is
-    unavailable; the game then uses neutral elements (never uploads answers).
+    personalization, never leaves device. A failed call returns an error
+    result (never throws); the game then uses neutral elements (never
+    uploads answers), scrubs the output, and logs the failure.
   - dialogue: PREFER_ON_DEVICE — inCloudParams (model gemini-3.5-flash-lite,
     responseMimeType application/json, responseSchema) + onDeviceParams
     responseConstraint. Single-turn structured calls; conversation history
     is managed client-side (condensed memory + latest line per call),
     because on-device inference supports single-turn generation only.
-  - plotter: ONLY_IN_CLOUD — mystery generation + consistency check + endings.
-- Inference source: `result.response.inferenceSource` (ON_DEVICE / IN_CLOUD),
-  shown as a chip on every AI reply. If the SDK does not report it, the chip
-  says "Source unknown" — never guessed.
-- App Check: enforced when configured. Debug provider for localhost;
-  reCAPTCHA Enterprise for the hosted site. Debug tokens are accepted by the
-  contest rules.
+  - plotter: ONLY_IN_CLOUD — consistency check (structured).
+  - plotterText: ONLY_IN_CLOUD — text generation (endings/briefing prose;
+    currently unused, reserved capacity).
+  - plotterGen: ONLY_IN_CLOUD — mystery generation, with the generation
+    schema from §9. Output is validated in code (js/mystery.js) before
+    use; invalid output is retried (max 3 attempts) and then the
+    hand-written case plays.
+  - notebook: PREFER_ON_DEVICE — notebook summary (see §9). On failure the
+    caller renders the notebook deterministically instead.
+- Call results: generateJSON/generateText RETURN { data, source, raw,
+  error } and never throw for model or parse failures. Every call site
+  checks `error` before using `data`, and logs failures to the ledger.
+- Inference source: `result.response.inferenceSource`, whose JS SDK
+  runtime values are "on_device" / "in_cloud" (InferenceSource constants —
+  NOT the "ON_DEVICE" / "IN_CLOUD" enum member names). ai.js normalizes
+  them to ON_DEVICE / IN_CLOUD / UNKNOWN, shown as a chip on every AI
+  reply. If the SDK does not report it, the chip says "Source unknown" —
+  never guessed.
+- App Check: enforcement for Firebase AI Logic is MANDATORY (since 2 Nov
+  2026); without it, cloud calls are rejected. The setup screen reports
+  the real status ("configured" | "debug" | "not configured") and never
+  shows a pass when it is not configured. Debug provider for localhost;
+  reCAPTCHA Enterprise for the hosted site. Debug tokens are accepted by
+  the contest rules.
 - Hosted on-device use needs a Chrome Prompt API Origin Trial token on the
   deployed domain; without it, hosted visitors need the Chrome flag. The
   demo video is recorded locally, so it never depends on the trial.
@@ -143,19 +180,34 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
 Personalizer (on-device, ONLY_ON_DEVICE):
   Input: 5 answers. Output JSON: { alias, hometownEcho, signatureMethod,
   stormDetail, companionCameo } — all strings, no raw answers echoed back.
+  Output is passed through the code scrubber before use (see §7).
 Dialogue (hybrid, PREFER_ON_DEVICE):
   Input: suspect card + condensed memory (<=6 bullets) + player line +
   story elements. Output JSON: { reply, mood, memoryUpdate, clueRevealed
-  (id|null), trustDelta (-1|0|+1) }.
+  (optional string id — omit when no clue is revealed), trustDelta
+  (-1|0|+1) }. clueRevealed is accepted only if the id exists in the
+  active case and its via includes "ask"; anything else is ignored.
+Mystery generation (cloud, ONLY_IN_CLOUD):
+  Input: story elements + setting + room ids (never raw answers).
+  Output JSON: { key, culprit, motive, truth, suspects[5], clues[10] }
+  per the frozen shape in js/mystery.js. The validator requires exactly
+  5 suspects / 10 clues, 3 questions per suspect, unique ids, valid
+  rooms/implicates, and at least 3 culprit-implicating clues reachable
+  without dialogue (via "search" or "both"). Up to 3 attempts; then the
+  hand-written case plays and the ledger says so.
 Consistency check (cloud):
-  Input: mystery draft (culprit, motive, clue list, timeline). Output JSON:
-  { solvable: bool, contradictions: string[], fixes: string[] }. If
-  solvable=false, the plotter regenerates (max 3 attempts), else the game
-  uses the hand-written fallback mystery. The check result is logged in the
-  case file shown to judges in the README.
-Notebook (hybrid):
-  Input: clue ids found + interrogation notes. Output JSON: { summary,
-  openQuestions: string[] }.
+  Input: active case draft (suspects, culprit, motive, clue list,
+  timeline). Output JSON: { solvable: "yes" | "no", contradictions:
+  string[], fixes: string[] }. The result is shown on the briefing screen
+  and logged in the ledger. A "no" result is displayed honestly; the
+  validator's solvability floor already guarantees the case is playable.
+Notebook (hybrid, PREFER_ON_DEVICE):
+  Input: found clue texts + condensed memory bullets + trust values from
+  the active case. NEVER the questionnaire answers. Output JSON:
+  { summary, openQuestions: string[] }. On any failure the module throws
+  and the caller renders the notebook deterministically, with an honest
+  note. The inference source is not reported for this call, so the stored
+  source is UNKNOWN — never guessed.
 
 ## 10. Screens
 
@@ -165,7 +217,7 @@ Notebook (hybrid):
 4. Personalizing… (on-device progress + chip)
 5. Case briefing (crime, storm, suspects)
 6. Play: rooms, suspects, interrogation, clue search
-7. Notebook drawer (clues, timeline, open questions)
+7. Notebook drawer (AI case summary when available, clues, timeline, open questions)
 8. Accusation (culprit + motive + 3 clues)
 9. Ending + case summary + replay
 Persistent: inference chips, online/offline indicator, privacy ledger,

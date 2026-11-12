@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Case of You — A Personal Mystery</title>
-<meta name="description" content="A detective mystery written around you. Your private answers never leave your device. Built with Firebase AI Logic hybrid inference.">
+<meta name="description" content="A detective mystery written around you. Your five questionnaire answers stay on your device. Built with Firebase AI Logic hybrid inference.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -35,6 +35,8 @@
   </div>
 </header>
 
+<p id="save-warning" class="save-warning" role="alert" hidden>Your progress is not being saved on this device — storage is unavailable or full. You can keep playing, but your progress will be lost if you leave this page.</p>
+
 <main>
   <!-- SETUP -->
   <section id="screen-setup" class="screen" hidden>
@@ -52,7 +54,7 @@
     <p class="lede">A priceless locket has been stolen. The road out is flooded. Five suspects remain inside the inn — and the mystery will be written around <em>you</em>.</p>
     <div class="how">
       <div class="how-card"><h2>Personal</h2><p>Five short questions shape the case: your name, your town, your skill, your fear.</p></div>
-      <div class="how-card"><h2>Private</h2><p>Your answers are turned into story on your own device. They never leave it.</p></div>
+      <div class="how-card"><h2>Private</h2><p>Your five answers become story on your own device and are never placed in a cloud prompt. See the privacy ledger for exactly what is sent where.</p></div>
       <div class="how-card"><h2>Hybrid</h2><p>On-device AI plays the suspects. Cloud AI weaves the plot and checks it can be solved.</p></div>
     </div>
     <button id="btn-begin" class="btn btn-primary btn-large" type="button">Begin the case</button>
@@ -81,7 +83,7 @@
       </label>
       <button class="btn btn-primary" type="submit">Shape my mystery</button>
     </form>
-    <p class="fineprint">Your raw answers are stored only in this browser's local storage. The cloud only ever sees fictionalized story elements. See the privacy ledger.</p>
+    <p class="fineprint">Your answers are stored only in this browser's local storage, and are never placed in a cloud-bound prompt by this game. The questions you type while interrogating suspects ARE sent to the model (on-device first, cloud fallback). See the privacy ledger.</p>
   </section>
 
   <!-- PERSONALIZING -->
@@ -170,7 +172,7 @@
 <aside id="ledger-panel" class="ledger" hidden>
   <div class="ledger-inner">
     <h2>Privacy ledger</h2>
-    <p>Every AI call in this game, and where its data went. Your raw answers never leave this device.</p>
+    <p>Every AI call in this game, and where its data went. Your 5 questionnaire answers are never placed in a cloud-bound prompt; questions you type are sent to the model.</p>
     <table>
       <thead><tr><th>What</th><th>Ran</th><th>Data sent</th></tr></thead>
       <tbody id="ledger-rows"></tbody>

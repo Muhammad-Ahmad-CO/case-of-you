@@ -7,10 +7,10 @@ Built for **#BuildHybridAI 2026** (Firebase + Devpost) using **Firebase AI Logic
 ## How it works
 
 1. **Five questions.** Your name, hometown, a skill, a fear, a travelling companion.
-2. **On-device personalization.** The on-device model (Gemini Nano, via the Chrome Prompt API) turns your answers into story elements — paraphrased, never verbatim. **Your raw answers never leave your device.** The personalizer runs in `ONLY_ON_DEVICE` mode, so it has no cloud fallback by design. If the on-device model is unavailable, the game uses neutral story elements and says so.
+2. **On-device personalization.** The on-device model (Gemini Nano, via the Chrome Prompt API) turns your answers into story elements — paraphrased, never verbatim. **Your 5 questionnaire answers are never placed in a cloud-bound prompt by this code.** The personalizer runs in `ONLY_ON_DEVICE` mode, so it has no cloud fallback by design, and a code scrubber replaces any story element that echoes a raw answer before it can reach a later prompt. If the on-device model is unavailable, the game uses neutral story elements and says so. Note: the free-text questions you type while interrogating suspects ARE sent to the model (on-device first, cloud fallback) — only the questionnaire answers get the never-in-a-cloud-prompt guarantee.
 3. **The case.** The Harrow Locket is stolen from a locked case. Five suspects. Three acts. You interrogate, search rooms, keep a notebook, and present your case: who, why, and with what evidence. Endings change with your accusation.
-4. **Verified solvable.** Before play, cloud AI checks the mystery for contradictions and confirms it can be solved. The check result is shown in the game.
-5. **Honest hybrid.** Every AI reply carries a chip: **On-device** or **Cloud** (from `response.inferenceSource`). The privacy ledger lists every AI call and where its data went. Offline, dialogue keeps working on-device and cloud features pause honestly.
+4. **Generated or hand-written, verified solvable.** A fresh game asks cloud AI to write a new mystery; the output is validated in code (shape, references, and a solvability floor: the culprit must be provable from searching alone) and only then activated. If generation fails or is rejected after 3 attempts, the hand-written case plays instead, and the ledger says so. Before play, cloud AI also checks the active case for contradictions. Both results are shown in the game.
+5. **Honest hybrid.** Every AI reply carries a chip: **On-device**, **Cloud**, or **Source unknown** (from `response.inferenceSource`, whose JS SDK runtime values are `"on_device"` / `"in_cloud"` — never guessed when unreported). The privacy ledger lists every AI call, including failures, and where its data went. The case notebook can ask the notebook model for an AI summary; when that fails or the player is offline, the deterministic notes show instead, with an honest note. Offline, dialogue keeps working on-device and cloud features pause honestly.
 
 ## Setup (no command line needed)
 
@@ -21,7 +21,9 @@ Built for **#BuildHybridAI 2026** (Firebase + Devpost) using **Firebase AI Logic
 3. Add a **Web app** (the `</>` icon) and copy the `firebaseConfig` values.
 4. Paste the values into `js/config.js`, directly in the GitHub web editor. Never send them in chat or email.
 
-### 2. App Check
+### 2. App Check (mandatory)
+
+Firebase AI Logic enforces App Check (mandatory since 2 Nov 2026). Without it, cloud AI calls are rejected. The setup screen reports the real App Check status and never shows a pass when it is not configured.
 
 1. In the Firebase console, go to **Build > App Check**, open your Web app, and register it with **reCAPTCHA Enterprise**. Paste the site key into `APP_CHECK_CONFIG.recaptchaSiteKey` in `js/config.js`.
 2. For local testing, the app sets the App Check debug token flag on localhost. Copy the debug token printed in the browser console and register it under **App Check > Apps > your Web app > Manage debug tokens**. Debug tokens are accepted by the contest rules.
@@ -48,16 +50,19 @@ Import this repository into [Vercel](https://vercel.com) (or any static host). N
 index.html      Screens, import map (Firebase JS SDK 12.11.0 via CDN)
 styles.css      Parchment / ink / oxblood design
 js/config.js    YOUR Firebase config (paste here, never in chat)
-js/ai.js        Firebase AI Logic engine: models, modes, schemas, checks
+js/ai.js        Firebase AI Logic engine: models, modes, schemas, scrubber, checks
 js/story.js     Story bible: rooms, suspects, clues, mysteries, endings
+js/mystery.js   Generated-mystery validation, active case, generation prompt
+js/notebook.js  AI notebook summary (condensed state only, never answers)
 js/game.js      Screens, state, notebook, ledger, accusation, endings
 SPEC.md         Full design + architecture + test gates
 ```
 
 ## Current status (honest)
 
-- **Scaffold complete:** full game flow, one hand-written mystery with three culprit variations, live AI dialogue with memory and trust, case notebook, privacy ledger, accusation and four endings, offline handling, save/load.
-- **Next phase:** cloud-generated mysteries (the plotter writes new cases; the consistency check verifies them), AI notebook summaries, design polish, and the demo video.
+- **Implemented:** full game flow; one hand-written mystery with three culprit variations; cloud-generated mysteries (validated in code, hand-written fallback); live AI dialogue with memory and trust; AI notebook summaries with deterministic fallback; case notebook; privacy ledger (including failed calls); accusation and four endings; offline handling; hardened save/load.
+- **Stub-verified only:** all AI behavior so far has been verified with stubbed models in a local harness. No live Firebase call has run yet. Gate 0 (live on-device proof on the developer's laptop) is still required before the demo video or submission, and no claim here depends on it having passed.
+- **Next:** design polish after the user's eyeball test (Gate 4), then the demo video.
 - **Not started:** Android (gated — only if the Web build passes its gates; on-device Android needs a Pixel 6+ / recent Galaxy class phone).
 
 ## Test gates

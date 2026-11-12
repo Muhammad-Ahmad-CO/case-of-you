@@ -134,7 +134,7 @@ export const SUSPECTS = [
 // Dialogue can NEVER invent clues: a model's clueRevealed is accepted only
 // if the id exists here and its `via` includes "ask".
 export const CLUES = [
-  { id: "c1", room: "lobby", via: "ask", text: "Guest register: Niko checked in under a false surname.", implicates: ["niko"] },
+  { id: "c1", room: "lobby", via: "both", text: "Guest register: Niko checked in under a false surname.", implicates: ["niko"] }, // "both": the perfect ending must be reachable by deterministic play alone (Gate 1 Lead decision).
   { id: "c2", room: "dining", via: "search", text: "A broken glass under the table, with a trace of lipstick.", implicates: ["ada"] },
   { id: "c3", room: "library", via: "search", text: "A torn letter about the locket's insurance value.", implicates: ["elsa"] },
   { id: "c4", room: "library", via: "both", text: "A logbook entry torn out — the night of the storm, twelve years ago.", implicates: ["elsa", "osei"] },
