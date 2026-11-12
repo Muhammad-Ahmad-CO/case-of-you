@@ -253,6 +253,8 @@ export function buildGenerationPrompt(elements) {
             implicates: ["suspect ids"],
           },
         ],
+        crime: "optional: one sentence restating the fixed crime — omit to use the hand-written wording",
+        timeline: ["optional: time-ordered beats of the crime window"],
       },
       null,
       2

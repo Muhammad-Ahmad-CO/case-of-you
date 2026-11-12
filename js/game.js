@@ -10,7 +10,7 @@
 // ARE sent to the model (on-device first, cloud fallback). The privacy
 // ledger records every AI call, including failures.
 //
-// AI call results (see ai.js): generateJSON/generateText RETURN
+// AI call results (see ai.js): generateJSON RETURNS
 // { data, source, raw, error } and never throw for model or parse
 // failures. Every call site below checks `error` before using `data`.
 

@@ -132,7 +132,7 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
   `initDeviceModels` right after `createModels`. Init failures are
   isolated per model, reported in the privacy ledger, and never block
   the game — the call-site fallbacks handle that model's later calls.
-- Models (Firebase AI Logic):
+- Models (Firebase AI Logic) — five, in contract order:
   - personalizer: ONLY_ON_DEVICE + onDeviceParams responseConstraint —
     personalization, never leaves device. A failed call returns an error
     result (never throws); the game then uses neutral elements (never
@@ -143,18 +143,17 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
     is managed client-side (condensed memory + latest line per call),
     because on-device inference supports single-turn generation only.
   - plotter: ONLY_IN_CLOUD — consistency check (structured).
-  - plotterText: ONLY_IN_CLOUD — created, but NOT called by any
-    feature (generateText is likewise uncalled outside ai.js).
-    Reserved capacity pending a wire-or-remove decision; not a
-    working feature and never presented as one.
   - plotterGen: ONLY_IN_CLOUD — mystery generation, with the generation
     schema from §9. Output is validated in code (js/mystery.js) before
     use; invalid output is retried (max 3 attempts) and then the
     hand-written case plays.
   - notebook: PREFER_ON_DEVICE — notebook summary (see §9). On failure the
     caller renders the notebook deterministically instead.
-- Call results: generateJSON/generateText RETURN { data, source, raw,
-  error } and never throw for model or parse failures. Every call site
+  Endings are hand-written text (js/story.js ENDINGS); no model writes
+  ending prose. The unused plotterText model and generateText helper
+  were removed from the code (they had no callers).
+- Call results: generateJSON RETURNS { data, source, raw,
+  error } and never throws for model or parse failures. Every call site
   checks `error` before using `data`, and logs failures to the ledger.
 - Inference source: `result.response.inferenceSource`, whose JS SDK
   runtime values are "on_device" / "in_cloud" (InferenceSource constants —
@@ -208,28 +207,28 @@ Dialogue (hybrid, PREFER_ON_DEVICE):
   crime/timeline fields under Mystery generation).
 Mystery generation (cloud, ONLY_IN_CLOUD):
   Input: story elements + setting + room ids (never raw answers).
-  Output JSON: { key, culprit, motive, truth, suspects[5], clues[10] }
-  per the frozen shape in js/mystery.js. The crime is PINNED by the
-  generation prompt ("THE CRIME IS FIXED"): every generated mystery
-  reuses the Harrow Locket theft at the Saltwind Inn — replay variety
-  comes from the culprit, motive, truth, suspects, and clues, not from
-  a new crime (Lead decision for the 16 Nov loop; new crimes would
-  need a coordinated schema + harness + UI change). The validator
-  requires exactly 5 suspects / 10 clues, 3 questions per suspect,
-  unique ids, valid rooms/implicates, and at least 3 culprit-implicating
-  clues reachable without dialogue (via "search" or "both"). The frozen
-  shape also accepts two OPTIONAL fields: `crime` (a non-empty string)
-  and `timeline` (an array of non-empty strings). Missing or null is
-  still valid — prompts then fall back to the hand-written crime and
-  timeline wording; present-but-malformed values are rejected like any
-  other bad field, and the hand-written case plays instead. Honest
-  limit: the generation schema in ai.js is still the 6-property shape
-  (no crime/timeline), so LIVE-generated mysteries do not carry these
-  fields yet and their prompts keep the hand-written fallback; adding
-  them to the schema is blocked pending a coordinated harness update.
-  Up to 3 attempts; then the hand-written case plays and the ledger
-  says so. setActiveCase preserves crime/timeline into the active case
-  when present; absent fields stay absent.
+  Output JSON: { key, culprit, motive, truth, suspects[5], clues[10],
+  crime?, timeline? } per the frozen shape in js/mystery.js. The crime
+  is PINNED by the generation prompt ("THE CRIME IS FIXED"): every
+  generated mystery reuses the Harrow Locket theft at the Saltwind Inn
+  — replay variety comes from the culprit, motive, truth, suspects,
+  and clues, not from a new crime (Lead decision for the 16 Nov loop;
+  new crimes would need further coordinated UI + prompt work). The
+  validator requires exactly 5 suspects / 10 clues, 3 questions per
+  suspect, unique ids, valid rooms/implicates, and at least 3
+  culprit-implicating clues reachable without dialogue (via "search"
+  or "both"). The frozen shape also accepts two OPTIONAL fields:
+  `crime` (a non-empty string) and `timeline` (an array of non-empty
+  strings), declared in the generation schema's properties and named
+  in its `optionalProperties` (the same pattern as the dialogue
+  schema's optional `clueRevealed`) — so live-generated mysteries CAN
+  carry them, and the shape example in the generation prompt mirrors
+  the schema. Missing or null is still valid — prompts then fall back
+  to the hand-written crime and timeline wording; present-but-malformed
+  values are rejected like any other bad field, and the hand-written
+  case plays instead. Up to 3 attempts; then the hand-written case
+  plays and the ledger says so. setActiveCase preserves crime/timeline
+  into the active case when present; absent fields stay absent.
 Consistency check (cloud):
   Input: active case draft (suspects with their secrets, culprit,
   motive, truth, clue list with room/via/implicates, timeline). Output

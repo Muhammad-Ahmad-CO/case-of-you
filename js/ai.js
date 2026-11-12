@@ -80,8 +80,11 @@ export const consistencySchema = Schema.object({
 });
 
 // Generation schema: mirrors the frozen generated-mystery JSON shape
-// (GATE-1 §1) exactly. All fields required; the validator in js/mystery.js
-// re-checks counts and references the schema cannot express.
+// (GATE-1 §1) exactly. crime/timeline are optional (declared in
+// properties with their types, named in optionalProperties — the same
+// pattern as dialogueSchema's clueRevealed); the validator in
+// js/mystery.js accepts them missing/null and re-checks counts and
+// references the schema cannot express.
 export const generationSchema = Schema.object({
   properties: {
     key: Schema.string(),
@@ -113,7 +116,10 @@ export const generationSchema = Schema.object({
         },
       }),
     }),
+    crime: Schema.string(),
+    timeline: Schema.array({ items: Schema.string() }),
   },
+  optionalProperties: ["crime", "timeline"],
 });
 
 export const notebookSchema = Schema.object({
@@ -251,12 +257,6 @@ export function createModels() {
     },
   });
 
-  // Plotter (text): cloud-only. Endings and briefing prose.
-  const plotterText = getGenerativeModel(ai, {
-    mode: InferenceMode.ONLY_IN_CLOUD,
-    inCloudParams: { model: CLOUD_MODEL },
-  });
-
   // Plotter (generation): cloud-only. Generates a fresh mystery matching
   // the frozen JSON shape; js/mystery.js validates before use.
   const plotterGen = getGenerativeModel(ai, {
@@ -279,14 +279,14 @@ export function createModels() {
     onDeviceParams: { promptOptions: { responseConstraint: notebookSchema } },
   });
 
-  models = { personalizer, dialogue, plotter, plotterText, plotterGen, notebook };
+  models = { personalizer, dialogue, plotter, plotterGen, notebook };
   return models;
 }
 
 // On-device init (F7): hybrid Step 6 requires initializeDeviceModel()
 // after/on a user interaction and before any query to the model. Called
 // by game.js (ensureModels) after createModels — never from inside ai.js.
-// Cloud-only models (plotter, plotterGen, plotterText) have no on-device
+// Cloud-only models (plotter, plotterGen) have no on-device
 // model and are never touched here. Each model's init is isolated: a
 // failure is reported in the returned results and never throws, so one
 // model's failure cannot block the others. Returns one result per
@@ -339,24 +339,13 @@ function parseJSON(text) {
 // Call results: { data, source, raw, error }. Failures (model errors and
 // malformed output) are RETURNED as error, never thrown — callers must
 // check error before using data, and log failures to the privacy ledger.
-// error is null on success. For generateText, data is the reply text.
+// error is null on success.
 export async function generateJSON(model, prompt) {
   let result = null;
   try {
     result = await model.generateContent(prompt);
     const text = result.response.text();
     return { data: parseJSON(text), source: readSource(result), raw: text, error: null };
-  } catch (e) {
-    return { data: null, source: readSource(result), raw: null, error: e };
-  }
-}
-
-export async function generateText(model, prompt) {
-  let result = null;
-  try {
-    result = await model.generateContent(prompt);
-    const text = result.response.text();
-    return { data: text, source: readSource(result), raw: text, error: null };
   } catch (e) {
     return { data: null, source: readSource(result), raw: null, error: e };
   }
