@@ -43,15 +43,29 @@ import {
   buildGenerationPrompt,
 } from "./mystery.js";
 import { summarizeNotebook } from "./notebook.js";
+import {
+  isDraftCase,
+  variationOrder,
+  adaptCase,
+  pickVariation,
+  motivesForCase,
+  caseTitle,
+} from "./cases.js";
 
 const SAVE_KEY = "case-of-you-save-v1";
-const MYSTERY_ORDER = ["tomas", "niko", "elsa"];
 
 function freshState() {
   return {
     phase: "title",
     answers: null,
     elements: null,
+    // Which SHIPPED case is active ("harrow-locket" | "sleeping-draught" |
+    // "burned-page"). Ignored when generatedCase is true. mysteryKey is
+    // the variation key WITHIN the case for shipped cases; for generated
+    // cases it keeps its current meaning (the generated mystery's key).
+    // Saves without caseKey (every save written before this field
+    // existed) load as "harrow-locket" — see load().
+    caseKey: "harrow-locket",
     mysteryKey: "tomas",
     generatedCase: false,
     generatedMystery: null,
@@ -81,14 +95,15 @@ let deviceInitResults = [];
 // ---------- Active case ----------
 //
 // The hand-written case has three culprit variations (MYSTERIES); a
-// generated case replaces suspects, clues, and mystery wholesale. This
-// helper is the single read path: hand-written play reads the story.js
-// consts plus the current variation, generated play reads the validated
-// active case from js/mystery.js. Behavior for the hand-written case is
-// identical to reading the consts directly.
+// generated case replaces suspects, clues, and mystery wholesale; a
+// draft case is one adapted variation of a content draft. This helper
+// is the single read path: hand-written play reads the story.js consts
+// plus the current variation, generated and draft play read the
+// validated active case from js/mystery.js. Behavior for the
+// hand-written case is identical to reading the consts directly.
 
 function currentCase() {
-  if (state.generatedCase) return getActiveCase();
+  if (state.generatedCase || isDraftCase(state.caseKey)) return getActiveCase();
   const m = MYSTERIES[state.mysteryKey] || MYSTERIES.tomas;
   return {
     suspects: SUSPECTS,
@@ -142,6 +157,56 @@ function handwrittenMystery(key) {
 
 function resetToHandwritten(key) {
   setActiveCase(handwrittenMystery(key));
+}
+
+// ONE activation funnel for shipped cases (Begin + replay). Draft
+// activation validates through the real setActiveCase; on ANY failure
+// the hand-written case plays, with an honest ledger note — never a
+// silent degradation, never invented facts. Draft activation forces
+// generationTried: a chosen draft must never be overwritten by a
+// generated locket mystery (runGenerationAttempt is unmodified and its
+// existing guard does the rest). The hand-written branch never touches
+// generationTried: Begin must leave generation available, replay sets
+// it explicitly. load() does NOT use this funnel — it restores saved
+// progress and must not reset it; see load() for its own restore path.
+function activateShippedCase(caseKey, variationKey) {
+  if (!isDraftCase(caseKey)) {
+    state.caseKey = "harrow-locket";
+    state.mysteryKey = MYSTERIES[variationKey] ? variationKey : "tomas";
+    state.generatedCase = false;
+    state.generatedMystery = null;
+    resetToHandwritten(state.mysteryKey);
+    ensureMemoryTrust();
+    return true;
+  }
+  const adapted = adaptCase(caseKey, variationKey);
+  if (!adapted || !setActiveCase(adapted)) {
+    state.caseKey = "harrow-locket";
+    state.mysteryKey = "tomas";
+    state.generatedCase = false;
+    state.generatedMystery = null;
+    // The fallback must stay the hand-written case: generation is forced
+    // off so the ledger row below stays true.
+    state.generationTried = true;
+    resetToHandwritten("tomas");
+    ensureMemoryTrust();
+    logLedger("Case activation", "local", "FAILED", "The chosen case could not be activated — playing the hand-written case.");
+    return false;
+  }
+  state.caseKey = caseKey;
+  state.mysteryKey = variationKey;
+  state.generatedCase = false;
+  state.generatedMystery = null;
+  state.generationTried = true;
+  state.memory = {};
+  state.trust = {};
+  state.asked = {};
+  state.foundClues = [];
+  state.log = [];
+  state.suspect = adapted.suspects[0].id;
+  state.notebookSummary = null;
+  ensureMemoryTrust();
+  return true;
 }
 
 // Every active suspect needs a memory array and a trust number, including
@@ -200,6 +265,7 @@ function load() {
 
     const merged = freshState();
     if (typeof parsed.phase === "string") merged.phase = parsed.phase;
+    if (typeof parsed.caseKey === "string") merged.caseKey = parsed.caseKey;
     if (typeof parsed.mysteryKey === "string") merged.mysteryKey = parsed.mysteryKey;
     if (typeof parsed.room === "string") merged.room = parsed.room;
     if (typeof parsed.suspect === "string") merged.suspect = parsed.suspect;
@@ -238,14 +304,40 @@ function load() {
       if (!setActiveCase(state.generatedMystery)) {
         state.generatedCase = false;
         state.generatedMystery = null;
+        state.caseKey = "harrow-locket";
         state.mysteryKey = "tomas";
         resetToHandwritten("tomas");
       }
     } else {
       state.generatedCase = false;
       state.generatedMystery = null;
-      if (!MYSTERIES[state.mysteryKey]) state.mysteryKey = "tomas";
-      resetToHandwritten(state.mysteryKey);
+      if (isDraftCase(state.caseKey)) {
+        // Draft save: re-derive the active case from (caseKey,
+        // mysteryKey) through the real adapter + validator — the same
+        // pattern as hand-written play re-reading the story.js consts.
+        // Generation is forced off for restored draft saves (defense
+        // against a hand-crafted save with generationTried: false).
+        // Saved progress is NOT reset here: load restores, it never
+        // restarts.
+        const order = variationOrder(state.caseKey);
+        const adapted = order && order.includes(state.mysteryKey) ? adaptCase(state.caseKey, state.mysteryKey) : null;
+        if (adapted && setActiveCase(adapted)) {
+          state.generationTried = true;
+        } else {
+          state.caseKey = "harrow-locket";
+          state.mysteryKey = "tomas";
+          // A hand-written game may legitimately attempt generation, so
+          // the parsed generationTried value must not survive the
+          // fallback — and the fallback is logged honestly, never silent.
+          state.generationTried = false;
+          resetToHandwritten("tomas");
+          logLedger("Case activation", "local", "FAILED", "Saved case could not be restored — playing the hand-written case");
+        }
+      } else {
+        state.caseKey = "harrow-locket";
+        if (!MYSTERIES[state.mysteryKey]) state.mysteryKey = "tomas";
+        resetToHandwritten(state.mysteryKey);
+      }
     }
     ensureMemoryTrust();
     if (!caseSuspect(state.suspect)) state.suspect = currentCase().suspects[0].id;
@@ -491,12 +583,20 @@ function logDeviceInitResults() {
 function renderBriefing() {
   const a = state.answers;
   const el = state.elements || NEUTRAL_ELEMENTS;
-  const { suspects } = currentCase();
+  const { suspects, mystery } = currentCase();
+  // Shipped cases are named with the registry title. Generated mysteries
+  // have no title field, and inventing one would be fake — so the line
+  // is omitted for them.
+  const titleLine =
+    !state.generatedCase && caseTitle(state.caseKey)
+      ? `<p class="kicker">${escapeHTML(caseTitle(state.caseKey))}</p>`
+      : "";
   $("briefing-text").innerHTML =
+    titleLine +
     `<p><strong>${escapeHTML(el.alias)}</strong> arrives at ${escapeHTML(SETTING.inn)} as the storm closes the road. ${escapeHTML(el.hometownEcho)} ${escapeHTML(el.companionCameo)}</p>` +
-    `<p>${escapeHTML(SETTING.crime)}</p>` +
+    `<p>${escapeHTML(caseCrimeText(mystery))}</p>` +
     `<p><em>${escapeHTML(el.signatureMethod)} ${escapeHTML(el.stormDetail)}</em></p>` +
-    `<p><strong>Timeline</strong></p><ul>${SETTING.timeline.map((t) => "<li>" + escapeHTML(t) + "</li>").join("")}</ul>` +
+    `<p><strong>Timeline</strong></p><ul>${caseTimeline(mystery).map((t) => "<li>" + escapeHTML(t) + "</li>").join("")}</ul>` +
     (a ? `<p class="fineprint">Playing as ${escapeHTML(a.displayName)} — your answers are stored only on this device.</p>` : "") +
     `<p id="verify-line" class="fineprint">Case verification: pending…</p>`;
   $("suspect-list").innerHTML = suspects.map(
@@ -731,7 +831,7 @@ function setNotebookAI(token, html) {
 
 async function renderNotebook() {
   const token = ++notebookToken;
-  const { suspects, clues } = currentCase();
+  const { suspects, clues, mystery } = currentCase();
   const open = [];
   suspects.forEach((s) => {
     if (!state.asked[s.id]) open.push("You have not questioned " + s.name + " yet.");
@@ -747,7 +847,7 @@ async function renderNotebook() {
     (state.foundClues.length
       ? `<ul>${state.foundClues.map((id) => caseClue(id)).filter(Boolean).map((c) => "<li>" + escapeHTML(c.text) + "</li>").join("")}</ul>`
       : "<p>No evidence yet.</p>") +
-    `<h2>Timeline</h2><ul>${SETTING.timeline.map((t) => "<li>" + escapeHTML(t) + "</li>").join("")}</ul>` +
+    `<h2>Timeline</h2><ul>${caseTimeline(mystery).map((t) => "<li>" + escapeHTML(t) + "</li>").join("")}</ul>` +
     `<h2>Open questions</h2>` +
     (open.length ? `<ul>${open.map((q) => "<li>" + escapeHTML(q) + "</li>").join("")}</ul>` : "<p>None. You are ready to present your case.</p>") +
     `<h2>What suspects remember</h2>` +
@@ -795,9 +895,12 @@ async function renderNotebook() {
 function renderAccusation() {
   const { suspects, mystery } = currentCase();
   $("accuse-culprit").innerHTML = suspects.map((s) => `<option value="${s.id}">${escapeHTML(s.name)} — ${escapeHTML(s.role)}</option>`).join("");
-  // The active motive must always be pickable — a generated case may use
-  // a motive outside the hand-written list.
-  const motiveOptions = MOTIVES.includes(mystery.motive) ? MOTIVES : [...MOTIVES, mystery.motive];
+  // Motive options come from the active case's own list (draft cases
+  // carry theirs in the wrapper) — the hand-written decoys would name
+  // the wrong crime. The active motive must always be pickable — a
+  // generated case may use a motive outside the hand-written list.
+  const baseMotives = motivesForCase(state.caseKey) ?? MOTIVES;
+  const motiveOptions = baseMotives.includes(mystery.motive) ? baseMotives : [...baseMotives, mystery.motive];
   $("accuse-motive").innerHTML = motiveOptions.map((m) => `<option>${escapeHTML(m)}</option>`).join("");
   $("accuse-clues").innerHTML = state.foundClues.length
     ? state.foundClues
@@ -881,7 +984,17 @@ function wire() {
     try {
       await ensureModels();
       state = freshState();
-      resetToHandwritten("tomas");
+      // The title-screen picker chooses the case. A draft game starts on
+      // a RANDOM variation (a fixed first variation would teach the
+      // culprit); the hand-written game keeps its deterministic tomas
+      // start, and generation may still replace it after the questions.
+      const picked = document.querySelector('input[name="case"]:checked');
+      const caseKey = picked ? picked.value : "harrow-locket";
+      if (isDraftCase(caseKey)) {
+        activateShippedCase(caseKey, pickVariation(caseKey));
+      } else {
+        resetToHandwritten("tomas");
+      }
       state.phase = "questions";
       save();
       logDeviceInitResults();
@@ -1001,8 +1114,14 @@ function wire() {
   };
 
   $("btn-replay").onclick = () => {
-    const idx = MYSTERY_ORDER.indexOf(state.mysteryKey);
-    const nextKey = MYSTERY_ORDER[(idx + 1) % MYSTERY_ORDER.length];
+    // Replay cycles the variations WITHIN the same case and wraps to its
+    // first variation; case switching happens only via "Back to title"
+    // + the picker. The rotation order is the registry order — the same
+    // tomas -> niko -> elsa cycle for the hand-written case.
+    const caseKey = variationOrder(state.caseKey) ? state.caseKey : "harrow-locket";
+    const order = variationOrder(caseKey) || ["tomas", "niko", "elsa"];
+    const idx = order.indexOf(state.mysteryKey);
+    const nextKey = order[(idx + 1) % order.length];
     const answers = state.answers;
     const elements = state.elements;
     const ledger = state.ledger;
@@ -1010,12 +1129,11 @@ function wire() {
     state.answers = answers;
     state.elements = elements;
     state.ledger = ledger;
-    state.mysteryKey = nextKey;
-    // Replay cycles the hand-written culprit variations; no new
-    // generation attempt, so the rotation always works.
+    state.caseKey = caseKey;
+    // Replay cycles the shipped-case variations; no new generation
+    // attempt, so the rotation always works.
     state.generationTried = true;
-    resetToHandwritten(nextKey);
-    ensureMemoryTrust();
+    activateShippedCase(caseKey, nextKey);
     state.phase = "briefing";
     save();
     renderBriefing();
@@ -1026,6 +1144,10 @@ function wire() {
   $("btn-title2").onclick = () => {
     state = freshState();
     resetToHandwritten("tomas");
+    // The picker resets too: a fresh start means a fresh choice, so the
+    // last-played case is NOT preserved on the picker (design §4).
+    const harrowRadio = document.querySelector('input[name="case"][value="harrow-locket"]');
+    if (harrowRadio) harrowRadio.checked = true;
     save();
     showScreen("screen-title");
   };

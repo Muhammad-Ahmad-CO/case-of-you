@@ -129,6 +129,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .note-ai p { margin: 0.3rem 0; }
 .note-ai ul { margin: 0.3rem 0; }
 
+/* Case picker on the title screen: three radio cards, same grid rhythm
+   as .how. The native radio dot stays visible; :has() adds the oxblood
+   emphasis for the selected card. */
+.case-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin: 1.5rem 0; padding: 0; border: 0; min-width: 0; }
+.case-pick legend { grid-column: 1 / -1; font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.5rem; font-weight: 700; line-height: 1.1; padding: 0; }
+.case-card { display: grid; gap: 0.3rem; align-content: start; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1rem 1.2rem; cursor: pointer; }
+.case-card:hover { border-color: var(--ink-soft); }
+.case-card:has(input:checked) { border-color: var(--oxblood); box-shadow: inset 4px 0 0 var(--oxblood); }
+.case-card input { justify-self: start; margin: 0; accent-color: var(--oxblood); }
+.case-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+.case-blurb { font-size: 0.9rem; color: var(--ink-soft); }
+
 footer { border-top: 2px solid var(--ink); padding: 1.2rem; text-align: center; background: var(--paper-dark); }
 footer p { margin: 0.3rem 0; }
 

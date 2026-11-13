@@ -6,9 +6,13 @@ your five questionnaire answers are never placed in a cloud-bound prompt.
 
 ## 1. Concept (one paragraph)
 
-The player arrives at The Saltwind Inn on a storm night. A priceless locket has
-been stolen from a locked case, the road out is flooded, and five suspects
-remain inside. Before the case begins, the game asks five short personal
+The player arrives at The Saltwind Inn on a storm night. The road out
+is flooded, and five suspects remain inside. On the title screen the
+player picks one of three cases: The Harrow Locket (a priceless locket
+stolen from a locked case), The Sleeping Draught (the night porter
+drugged and left unconscious), or The Burned Page (a page torn from
+the inn's logbook and burned). One crime per playthrough. Before the
+case begins, the game asks five short personal
 questions (name, hometown, a skill, a fear, a travelling companion). On-device
 AI turns those answers into story elements, so the mystery references the
 player by name, ties the crime to their skill, and echoes their hometown.
@@ -42,8 +46,18 @@ The Saltwind Inn, a seaside inn. Storm night. Road flooded. Five rooms:
 4. Cellar — wine, muddy footprints, a forced window latch.
 5. Room 6 (Niko's room) — an open drawer, a train ticket, a half-packed bag.
 
-The crime: the Harrow Locket, belonging to the innkeeper's late wife, was
-taken from the locked display case between 8pm and 9pm. No one left the inn.
+The three cases share the Saltwind Inn setting — the same five rooms,
+the same five suspects, one crime per playthrough. Each case has its
+own crime:
+- The Harrow Locket: the locket, belonging to the innkeeper's late
+  wife, was taken from the locked display case between 8pm and 9pm.
+  No one left the inn.
+- The Sleeping Draught: between 7pm and 8pm, someone put a sleeping
+  draught in the wine decanter on the sideboard; old Bram, the night
+  porter, drank from it and will not wake until morning.
+- The Burned Page: between 8pm and 9pm, someone tore one page from
+  the inn's logbook and burned it in the library fireplace — the page
+  recording a large loan made nine winters ago.
 
 ## 4. Suspects (v1: five, each with motive + secret + tell)
 
@@ -62,9 +76,12 @@ taken from the locked display case between 8pm and 9pm. No one left the inn.
    debts in the city. Secret: climbed the cliff path at dusk. Tell: hums
    when nervous; his guitar case is too heavy.
 
-Culprit variations (replayability): the same crime, three possible culprits
-(Elsa / Tomas / Niko), each with its own motive chain and clue arrangement.
-The game picks one per playthrough; the consistency check verifies it.
+Culprit variations (replayability): each case has three possible
+culprits, each with its own motive chain and clue arrangement. The
+hand-written Harrow Locket case has three culprits (Elsa / Tomas /
+Niko), unchanged. The Sleeping Draught has three (Ada / Elsa /
+Tomas); The Burned Page has three (Ada / Niko / Tomas). The game
+picks one per playthrough; the consistency check verifies it.
 
 ## 5. Clues (v1: ten, each tied to a room and a suspect)
 
@@ -95,9 +112,14 @@ perfect ending is reachable by deterministic play alone (Gate 1 decision).
   - E2 Right Person, Wrong Why: culprit confesses part, full truth escapes.
   - E3 Wrong Accusation: the real culprit leaves on the morning tide.
   - E4 The Case Goes Cold: player gives up; the inn keeps its secret.
-- Replay: "New case, new culprit" cycles the three hand-written culprit
-  variations. A fresh game (not a replay) may instead ask the cloud
-  plotter to write a new mystery; see §8/§9 for the validation rules.
+- Replay: "New case, new culprit" cycles the three culprit variations
+  WITHIN the same case, then wraps to its first variation. A fresh
+  draft game picks a random variation. Switching cases happens only
+  on the title screen, with the case picker. A fresh Harrow Locket
+  game (not a replay) may instead ask the cloud plotter to write a
+  new mystery; see §8/§9 for the validation rules. Generated
+  mysteries stay hand-written-case-only: a chosen draft case is
+  never replaced by a generated mystery.
 
 ## 7. Personalization contract (privacy-first, enforced in code)
 
@@ -285,8 +307,11 @@ probe at 390px).
 - GATE 1 — Dialogue quality: 20 scripted interrogation lines across all 5
   suspects; >=80% in-character, on-topic, no contradictions with known
   facts. Else prompt/contract rework.
-- GATE 2 — Solvability: 3 full playthroughs (one per culprit), zero plot
-  holes, all endings reachable, notebook correct throughout.
+- GATE 2 — Solvability: 9 full playthroughs (3 cases × 3 culprit
+  variations), played by deterministic search-only play to PERFECT,
+  zero plot holes, all endings reachable, notebook correct
+  throughout. Plus a wrong-culprit control: accusing the wrong
+  culprit must not reach a Perfect Solve.
 - GATE 3 — Offline: airplane-mode play — dialogue + notebook work, cloud
   features pause honestly, no errors, no fake replies.
 - GATE 4 — User eyeball test on laptop + phone: design approved by the user

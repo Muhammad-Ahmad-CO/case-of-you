@@ -23,7 +23,7 @@ export const ROOMS = [
     id: "lobby",
     name: "Lobby",
     description:
-      "A fireplace, the guest register, and the display case — standing open and empty. Rain hammers the windows.",
+      "A fireplace, the guest register, and the display case, its glass catching the firelight. Rain hammers the windows.",
   },
   {
     id: "dining",
@@ -180,19 +180,19 @@ export const MYSTERIES = {
 export const ENDINGS = {
   perfect: {
     title: "Case Closed — Perfect Solve",
-    text: "The room goes silent. The culprit's story falls apart, clue by clue, until there is nothing left but the truth. The locket is recovered before the storm breaks.",
+    text: "The room goes silent. The culprit's story falls apart, clue by clue, until there is nothing left but the truth. The case is closed before the storm breaks.",
   },
   partial: {
     title: "Case Closed — But Not Whole",
-    text: "You named the right person, but the why slipped away. A confession, half-given. The locket returns — the full truth does not.",
+    text: "You named the right person, but the why slipped away. A confession, half-given. The case is closed — the full truth is not.",
   },
   wrong: {
     title: "The Wrong Accusation",
-    text: "The accusation lands — and misses. While the inn argues, the real thief slips out with the morning tide. The case goes into the logbook as unsolved.",
+    text: "The accusation lands — and misses. While the inn argues, the real culprit slips out with the morning tide. The case goes into the logbook as unsolved.",
   },
   cold: {
     title: "The Case Goes Cold",
-    text: "You walk away from the inn as the storm breaks. The locket is never found. The Saltwind Inn keeps its secret — and so do you.",
+    text: "You walk away from the inn as the storm breaks. The case is never solved. The Saltwind Inn keeps its secret — and so do you.",
   },
 };
 

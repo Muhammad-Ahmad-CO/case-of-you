@@ -51,12 +51,30 @@
   <section id="screen-title" class="screen" hidden>
     <p class="kicker">The Saltwind Inn &middot; One storm night &middot; One crime</p>
     <h1 class="display">The Case<br>of You</h1>
-    <p class="lede">A priceless locket has been stolen. The road out is flooded. Five suspects remain inside the inn — and the mystery will be written around <em>you</em>.</p>
+    <p class="lede">A storm night at The Saltwind Inn. The road out is flooded, five suspects remain inside — and the mystery will be written around <em>you</em>.</p>
     <div class="how">
       <div class="how-card"><h2>Personal</h2><p>Five short questions shape the case: your name, your town, your skill, your fear.</p></div>
       <div class="how-card"><h2>Private</h2><p>Your five answers become story on your own device and are never placed in a cloud prompt. See the privacy ledger for exactly what is sent where.</p></div>
       <div class="how-card"><h2>Hybrid</h2><p>On-device AI plays the suspects. Cloud AI weaves the plot and checks it can be solved.</p></div>
     </div>
+    <fieldset class="case-pick">
+      <legend>Choose your case</legend>
+      <label class="case-card">
+        <input type="radio" name="case" value="harrow-locket" checked>
+        <span class="case-title">The Harrow Locket</span>
+        <span class="case-blurb">A priceless locket is stolen from a locked case — and no one left the inn.</span>
+      </label>
+      <label class="case-card">
+        <input type="radio" name="case" value="sleeping-draught">
+        <span class="case-title">The Sleeping Draught</span>
+        <span class="case-blurb">The night porter drinks from a drugged decanter and will not wake until morning.</span>
+      </label>
+      <label class="case-card">
+        <input type="radio" name="case" value="burned-page">
+        <span class="case-title">The Burned Page</span>
+        <span class="case-blurb">A page is torn from the inn's logbook and burned — the record of a loan nine winters old.</span>
+      </label>
+    </fieldset>
     <button id="btn-begin" class="btn btn-primary btn-large" type="button">Begin the case</button>
     <p class="fineprint">Best on desktop Chrome 139 or newer. On other browsers the game still plays, using cloud inference.</p>
   </section>
@@ -142,7 +160,7 @@
     <h1>Present your case</h1>
     <p>Everyone is gathered in the lobby. Name the culprit, the motive, and the three clues that prove it. There is no undo.</p>
     <form id="form-accuse" class="card form">
-      <label>Who stole the locket?
+      <label>Who committed the crime?
         <select id="accuse-culprit" required></select>
       </label>
       <label>Why did they do it?
