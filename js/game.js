@@ -98,6 +98,12 @@ let deviceInitResults = [];
 // briefing was shown would discard the case the player has already seen.)
 let consistencyPaused = false;
 
+// True while a generated-case replay is awaiting the cloud plotter, so
+// a second click cannot start a concurrent generation (the handler
+// yields on the network call; the shipped-case path is synchronous and
+// never leaves this set). Cleared in the replay handler's finally.
+let replayInFlight = false;
+
 // ---------- Active case ----------
 //
 // The hand-written case has three culprit variations (MYSTERIES); a
@@ -1139,15 +1145,25 @@ function wire() {
     showScreen("screen-ending");
   };
 
-  $("btn-replay").onclick = () => {
-    // Replay cycles the variations WITHIN the same case and wraps to its
-    // first variation; case switching happens only via "Back to title"
-    // + the picker. The rotation order is the registry order — the same
-    // tomas -> niko -> elsa cycle for the hand-written case.
-    const caseKey = variationOrder(state.caseKey) ? state.caseKey : "harrow-locket";
-    const order = variationOrder(caseKey) || ["tomas", "niko", "elsa"];
-    const idx = order.indexOf(state.mysteryKey);
-    const nextKey = order[(idx + 1) % order.length];
+  $("btn-replay").onclick = async () => {
+    // Replay is "New case, new culprit". For shipped cases it cycles the
+    // variations WITHIN the same case and wraps to its first variation;
+    // case switching happens only via "Back to title" + the picker. The
+    // rotation order is the registry order — the same tomas -> niko ->
+    // elsa cycle for the hand-written case. A generated mystery has no
+    // variations to cycle: its key is not in any order, so the old code
+    // silently fell through to hand-written tomas (F5). Replay after a
+    // generated case instead asks the cloud plotter for a FRESH mystery,
+    // with the hand-written case as the fallback base — exactly the Begin
+    // flow. Generation is never attempted for shipped/draft replays.
+    if (replayInFlight) return;
+    replayInFlight = true;
+    const wasGenerated = state.generatedCase;
+    // Capture the rotation inputs BEFORE freshState() resets them to
+    // the tomas default — computing nextKey after the reset would
+    // rotate from tomas every time instead of from the played case.
+    const prevCaseKey = state.caseKey;
+    const prevMysteryKey = state.mysteryKey;
     const answers = state.answers;
     const elements = state.elements;
     const ledger = state.ledger;
@@ -1155,16 +1171,50 @@ function wire() {
     state.answers = answers;
     state.elements = elements;
     state.ledger = ledger;
-    state.caseKey = caseKey;
-    // Replay cycles the shipped-case variations; no new generation
-    // attempt, so the rotation always works.
-    state.generationTried = true;
-    activateShippedCase(caseKey, nextKey);
-    state.phase = "briefing";
-    save();
-    renderBriefing();
-    showScreen("screen-briefing");
-    runConsistencyCheck();
+    try {
+      if (!wasGenerated) {
+        const caseKey = variationOrder(prevCaseKey) ? prevCaseKey : "harrow-locket";
+        const order = variationOrder(caseKey) || ["tomas", "niko", "elsa"];
+        const idx = order.indexOf(prevMysteryKey);
+        const nextKey = order[(idx + 1) % order.length];
+        state.caseKey = caseKey;
+        // Replay cycles the shipped-case variations; no new generation
+        // attempt, so the rotation always works.
+        state.generationTried = true;
+        activateShippedCase(caseKey, nextKey);
+        state.phase = "briefing";
+        save();
+        renderBriefing();
+        showScreen("screen-briefing");
+        runConsistencyCheck();
+        return;
+      }
+      // Generated case: re-generate. The hand-written case is activated
+      // first as the fallback base, so a failed or paused generation
+      // still leaves a playable case — and its FAILED/PAUSED ledger row
+      // says so, exactly as on Begin.
+      const btn = $("btn-replay");
+      if (btn) btn.disabled = true;
+      activateShippedCase("harrow-locket", "tomas");
+      state.phase = "briefing";
+      save();
+      renderBriefing();
+      showScreen("screen-briefing");
+      try {
+        await ensureModels();
+      } catch (e) {
+        // Model setup failed: generation below returns false (no
+        // models), but the player must be told — the null-models return
+        // in runGenerationAttempt logs nothing on its own.
+        logLedger("Model setup (replay)", "local", "FAILED", "Could not prepare AI models (" + (e.message || String(e)) + "); the hand-written case plays.");
+      }
+      await runGenerationAttempt();
+      runConsistencyCheck();
+    } finally {
+      const btn = $("btn-replay");
+      if (btn) btn.disabled = false;
+      replayInFlight = false;
+    }
   };
 
   $("btn-title2").onclick = () => {

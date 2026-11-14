@@ -116,10 +116,13 @@ perfect ending is reachable by deterministic play alone (Gate 1 decision).
   WITHIN the same case, then wraps to its first variation. A fresh
   draft game picks a random variation. Switching cases happens only
   on the title screen, with the case picker. A fresh Harrow Locket
-  game (not a replay) may instead ask the cloud plotter to write a
-  new mystery; see §8/§9 for the validation rules. Generated
-  mysteries stay hand-written-case-only: a chosen draft case is
-  never replaced by a generated mystery.
+  game may instead ask the cloud plotter to write a new mystery —
+  and so may a replay after a generated case, which asks for a fresh
+  generated mystery rather than silently falling back to the
+  hand-written case; if generation is unavailable, the hand-written
+  case plays and the ledger says so. See §8/§9 for the validation
+  rules. Generated mysteries stay hand-written-case-only: a chosen
+  draft case is never replaced by a generated mystery.
 
 ## 7. Personalization contract (privacy-first, enforced in code)
 
