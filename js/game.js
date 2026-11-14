@@ -91,6 +91,12 @@ let firebaseReady = false;
 // fresh-game flow replaces state after ensureModels runs, so logging
 // inside ensureModels would be wiped).
 let deviceInitResults = [];
+// True when the briefing-time consistency check was paused offline and has
+// not run since; cleared when the check runs. Lets the online listener
+// re-run the paused check instead of leaving "paused" on screen forever.
+// (Generation is deliberately NOT re-run: swapping the mystery after the
+// briefing was shown would discard the case the player has already seen.)
+let consistencyPaused = false;
 
 // ---------- Active case ----------
 //
@@ -611,7 +617,16 @@ function renderBriefing() {
 // per playthrough (generationTried), and only while online.
 async function runGenerationAttempt() {
   if (state.generatedCase || state.generationTried) return false;
-  if (!navigator.onLine || !models || !models.plotterGen) return false;
+  if (!navigator.onLine) {
+    // Logged, not silent: the ledger lists every AI call including
+    // paused ones (SPEC §7). The hand-written case plays for this
+    // playthrough — generation is never re-run after the briefing,
+    // because swapping the mystery underneath the player would discard
+    // the case they have already seen.
+    logLedger("Mystery generation (paused)", "ONLY_IN_CLOUD", "PAUSED", "Paused — you are offline; nothing was sent. The hand-written case plays for this playthrough.");
+    return false;
+  }
+  if (!models || !models.plotterGen) return false;
   state.generationTried = true;
   const line = $("verify-line");
   if (line) line.textContent = "Writing a fresh mystery in the cloud…";
@@ -649,9 +664,12 @@ async function runConsistencyCheck() {
   const line = $("verify-line");
   if (!navigator.onLine) {
     state.verified = null;
+    consistencyPaused = true;
+    logLedger("Consistency check (paused)", "ONLY_IN_CLOUD", "PAUSED", "Paused — you are offline; no data was sent. The case is playable as-is.");
     if (line) line.textContent = "Case verification: paused — you are offline. The case is playable as-is.";
     return;
   }
+  consistencyPaused = false;
   let res;
   try {
     res = await generateJSON(models.plotter, consistencyPrompt());
@@ -947,7 +965,15 @@ function renderEnding(endingId) {
 // ---------- Wiring ----------
 
 function wire() {
-  window.addEventListener("online", setOnlinePill);
+  window.addEventListener("online", () => {
+    setOnlinePill();
+    // Resume a consistency check paused offline — but only while the case
+    // is still in front of the player (briefing/play). On the title screen
+    // or after the ending there is nothing to re-verify.
+    if (consistencyPaused && (state.phase === "briefing" || state.phase === "play")) {
+      runConsistencyCheck();
+    }
+  });
   window.addEventListener("offline", setOnlinePill);
   setOnlinePill();
   renderLedger();

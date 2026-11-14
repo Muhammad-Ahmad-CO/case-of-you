@@ -313,7 +313,9 @@ probe at 390px).
   throughout. Plus a wrong-culprit control: accusing the wrong
   culprit must not reach a Perfect Solve.
 - GATE 3 — Offline: airplane-mode play — dialogue + notebook work, cloud
-  features pause honestly, no errors, no fake replies.
+  features pause honestly (each paused call is logged in the privacy
+  ledger; the consistency check re-runs on reconnect, generation is
+  not re-run), no errors, no fake replies.
 - GATE 4 — User eyeball test on laptop + phone: design approved by the user
   before demo production. No approval = no video.
 - GATE 5 — Submission packet: public repo + license + README, <3min demo
