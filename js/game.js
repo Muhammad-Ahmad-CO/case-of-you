@@ -44,6 +44,7 @@ import {
 } from "./mystery.js";
 import { summarizeNotebook } from "./notebook.js";
 import {
+  CASES,
   isDraftCase,
   variationOrder,
   adaptCase,
@@ -970,6 +971,36 @@ function renderEnding(endingId) {
 
 // ---------- Wiring ----------
 
+// The title-screen case picker is rendered from the CASES registry —
+// the single source of truth for titles and blurbs. The markup used to
+// be hand-duplicated in index.html and could drift from the registry
+// (F6); rendering it here makes drift impossible. Labels are built with
+// createElement and appended (never innerHTML), so the fieldset legend
+// survives; text goes through textContent and the value through the
+// input property, so registry strings can never break out of markup.
+// Registry order is kept as-is, first entry checked.
+function renderPicker() {
+  const fieldset = $("case-pick");
+  if (!fieldset) return;
+  CASES.forEach((c, i) => {
+    const label = document.createElement("label");
+    label.className = "case-card";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "case";
+    input.value = c.key;
+    if (i === 0) input.checked = true;
+    const title = document.createElement("span");
+    title.className = "case-title";
+    title.textContent = c.title;
+    const blurb = document.createElement("span");
+    blurb.className = "case-blurb";
+    blurb.textContent = c.blurb;
+    label.append(input, title, blurb);
+    fieldset.append(label);
+  });
+}
+
 function wire() {
   window.addEventListener("online", () => {
     setOnlinePill();
@@ -1227,6 +1258,15 @@ function wire() {
     save();
     showScreen("screen-title");
   };
+
+  // Render the case picker last, guarded: a picker failure must never
+  // abort the button wiring above (Begin still falls back to
+  // harrow-locket when no radio is checked).
+  try {
+    renderPicker();
+  } catch (e) {
+    console.error("Could not render the case picker:", e);
+  }
 }
 
 // ---------- Boot ----------

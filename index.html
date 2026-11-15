@@ -57,23 +57,9 @@
       <div class="how-card"><h2>Private</h2><p>Your five answers become story on your own device and are never placed in a cloud prompt. See the privacy ledger for exactly what is sent where.</p></div>
       <div class="how-card"><h2>Hybrid</h2><p>On-device AI plays the suspects. Cloud AI weaves the plot and checks it can be solved.</p></div>
     </div>
-    <fieldset class="case-pick">
+    <fieldset class="case-pick" id="case-pick">
       <legend>Choose your case</legend>
-      <label class="case-card">
-        <input type="radio" name="case" value="harrow-locket" checked>
-        <span class="case-title">The Harrow Locket</span>
-        <span class="case-blurb">A priceless locket is stolen from a locked case — and no one left the inn.</span>
-      </label>
-      <label class="case-card">
-        <input type="radio" name="case" value="sleeping-draught">
-        <span class="case-title">The Sleeping Draught</span>
-        <span class="case-blurb">The night porter drinks from a drugged decanter and will not wake until morning.</span>
-      </label>
-      <label class="case-card">
-        <input type="radio" name="case" value="burned-page">
-        <span class="case-title">The Burned Page</span>
-        <span class="case-blurb">A page is torn from the inn's logbook and burned — the record of a loan nine winters old.</span>
-      </label>
+      <!-- Case cards are rendered here from the CASES registry (js/game.js renderPicker) — the single source of truth for titles and blurbs. -->
     </fieldset>
     <button id="btn-begin" class="btn btn-primary btn-large" type="button">Begin the case</button>
     <p class="fineprint">Best on desktop Chrome 139 or newer. On other browsers the game still plays, using cloud inference.</p>
