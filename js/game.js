@@ -625,12 +625,20 @@ function renderBriefing() {
 async function runGenerationAttempt() {
   if (state.generatedCase || state.generationTried) return false;
   if (!navigator.onLine) {
+    // The paused attempt counts as the one attempt for this
+    // playthrough: without generationTried, a reload + Continue at
+    // the briefing would re-attempt generation (and could swap the
+    // mystery the player already saw, once back online). logLedger
+    // saves internally; the explicit save() keeps the persistence
+    // intent visible if that ever changes.
+    state.generationTried = true;
     // Logged, not silent: the ledger lists every AI call including
     // paused ones (SPEC §7). The hand-written case plays for this
     // playthrough — generation is never re-run after the briefing,
     // because swapping the mystery underneath the player would discard
     // the case they have already seen.
     logLedger("Mystery generation (paused)", "ONLY_IN_CLOUD", "PAUSED", "Paused — you are offline; nothing was sent. The hand-written case plays for this playthrough.");
+    save();
     return false;
   }
   if (!models || !models.plotterGen) return false;
