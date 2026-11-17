@@ -34,13 +34,16 @@ import {
 } from "firebase/ai";
 import { FIREBASE_CONFIG, APP_CHECK_CONFIG, isConfigured } from "./config.js";
 
-// Cloud model, pinned deliberately together with the firebase@12.11.0 SDK
+// Cloud model, pinned deliberately together with the firebase@13.2.0 SDK
 // pin in the index.html import map: gemini-3.5-flash-lite is a verified real
-// GA model ID, and 12.11.0 is the SDK version whose hybrid behavior
-// (inferenceSource values, responseConstraint) was verified against the
-// official docs. Do not "upgrade" either without re-verifying the F1
-// inference-source values against the official docs. Gate 0 in SPEC.md
-// verifies the real call.
+// GA model ID, and 13.2.0 is the SDK version whose hybrid behavior
+// (inferenceSource values, responseConstraint) was verified: 12.11.0 had an
+// inverted validateGenerationConfig that threw whenever responseMimeType
+// was set alongside responseSchema (reproduced 2026-11-17 against the real
+// SDK; the docs-blessed config threw on every hybrid/cloud model). 13.2.0
+// constructs all five models, and InferenceSource values are unchanged
+// ("on_device"/"in_cloud"). Do not change either pin without re-verifying
+// the F1 inference-source values. Gate 0 in SPEC.md verifies the real call.
 export const CLOUD_MODEL = "gemini-3.5-flash-lite";
 
 let app = null;
@@ -353,12 +356,21 @@ export async function generateJSON(model, prompt) {
 
 // ---------- Environment checks (for the setup screen) ----------
 
+// How long to wait for LanguageModel.availability() before giving up.
+// Seen live 17 Nov 2026: with the model present but no execution config,
+// availability() never settled and the game sat on a blank screen waiting
+// for runSetupChecks(). A hang must fall back to cloud, never blank-screen.
+const AVAILABILITY_TIMEOUT_MS = 10000;
+
 export async function checkOnDeviceAvailability() {
   try {
     if (typeof LanguageModel === "undefined" || !LanguageModel.availability) {
       return "unavailable (Prompt API not present in this browser)";
     }
-    return await LanguageModel.availability(); // available | downloading | downloadable | unavailable
+    const timeout = new Promise((resolve) =>
+      setTimeout(() => resolve("unavailable (on-device availability check timed out after 10s)"), AVAILABILITY_TIMEOUT_MS)
+    );
+    return await Promise.race([LanguageModel.availability(), timeout]); // available | downloading | downloadable | unavailable
   } catch (e) {
     return "unavailable (" + e.message + ")";
   }

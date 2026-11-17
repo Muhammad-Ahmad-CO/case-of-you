@@ -47,7 +47,7 @@ Import this repository into [Vercel](https://vercel.com) (or any static host). N
 ## Project structure
 
 ```
-index.html      Screens, import map (Firebase JS SDK 12.11.0 via CDN)
+index.html      Screens, import map (Firebase JS SDK 13.2.0 via CDN)
 styles.css      Parchment / ink / oxblood design
 js/config.js    YOUR Firebase config (paste here, never in chat)
 js/ai.js        Firebase AI Logic engine: models, modes, schemas, scrubber, checks

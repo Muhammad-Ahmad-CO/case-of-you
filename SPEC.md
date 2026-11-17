@@ -148,7 +148,11 @@ Inputs (5 questions): displayName, hometown, skill, fear, companion.
 ## 8. Hybrid architecture (verified against the official Firebase AI Logic hybrid docs for Web)
 
 - Platform: Web (Chrome, Desktop) first. Static, zero-build site (no npm),
-  Firebase JS SDK 12.11.0 via CDN import map. Deployed on Vercel from GitHub.
+  Firebase JS SDK 13.2.0 via CDN import map. Deployed on Vercel from GitHub.
+  (12.11.0 was replaced 2026-11-17: its validateGenerationConfig threw
+  whenever responseMimeType was set with responseSchema — reproduced
+  against the real SDK. 13.2.0 constructs all five models; inferenceSource
+  values re-verified unchanged.)
 - Backend: Gemini Developer API via `new GoogleAIBackend()` (free to start).
   `getGenerativeModel` is called only after/on a user gesture (a docs
   requirement for inference modes). Every on-device model must also have
