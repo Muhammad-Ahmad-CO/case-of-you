@@ -13,7 +13,7 @@
 // See README.md for the full step-by-step setup guide.
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBO_agG3hhyZeWOEH7HnT3tENZIWUIYaUU",
   authDomain: "the-case-of-you.firebaseapp.com",
   projectId: "the-case-of-you",
