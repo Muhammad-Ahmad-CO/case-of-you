@@ -12,13 +12,15 @@
 //
 // See README.md for the full step-by-step setup guide.
 
-export const FIREBASE_CONFIG = {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
-  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId: "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_SENDER_ID_HERE",
-  appId: "PASTE_YOUR_APP_ID_HERE",
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBO_agG3hhyZeWOEH7HnT3tENZIWUIYaUU",
+  authDomain: "the-case-of-you.firebaseapp.com",
+  projectId: "the-case-of-you",
+  storageBucket: "the-case-of-you.firebasestorage.app",
+  messagingSenderId: "543269111470",
+  appId: "1:543269111470:web:805ed2b7a4693aa98fcf3f",
+  measurementId: "G-3MX0EDT4F0"
 };
 
 export const APP_CHECK_CONFIG = {
