@@ -300,6 +300,19 @@ Notebook (hybrid, PREFER_ON_DEVICE):
 9. Ending + case summary + replay
 Persistent: inference chips, online/offline indicator, privacy ledger,
 save/load (localStorage; Firestore sync is a stretch goal, not v1).
+Visual layer (Murder in the Alps style, added 19 Nov 2026; replaces
+Option C): original AI-painted art in assets/ — a title image (the inn
+door in the storm, user-picked variant B), one painted scene per room
+(lobby, dining, library, cellar, Room 6) shown full-screen on the play
+stage, and one painted portrait per suspect on the briefing cards and
+in the face-to-face panel with a trust meter. The play screen is a
+stage: scene image, room description overlay, a left clue rail (one
+gold slot per found clue), and a bottom dialogue bar with the suspect's
+portrait. Images are set from js/game.js with an asset base derived
+from import.meta.url, so paths resolve both in production (/assets/)
+and in the harness (/repo/assets/). Story, suspects, clues and AI
+routing are unchanged; the Option C inline-SVG layer and the rain /
+lightning script were removed.
 Small screens: the 30rem media block sits LAST in styles.css so its
 heading and topbar scaling actually applies — it previously sat at the
 top of the file, where later base rules overrode it and the small-screen

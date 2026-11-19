@@ -240,7 +240,58 @@ const $ = (id) => document.getElementById(id);
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => (s.hidden = true));
   $(id).hidden = false;
+  setBackdropScene(id);
   window.scrollTo(0, 0);
+}
+
+// Painted-art visual layer (Murder in the Alps style): real image files
+// in assets/. The base is derived from this module's own URL, so it
+// resolves both from /js/game.js in production and from /repo/js/game.js
+// when the harness loads the same file from /tests/.
+const ASSET_BASE = new URL("../assets/", import.meta.url).href;
+const SCENE_FILES = { lobby: "scene-lobby.webp", dining: "scene-dining.webp", library: "scene-library.webp", cellar: "scene-cellar.webp", room6: "scene-room6.webp" };
+
+// Warm the art cache at boot while online: the game must keep playing
+// offline (Gate 3), and a portrait or scene that has never been fetched
+// fails with a page error when the network drops. Preloading every asset
+// here means later renders are served from the browser cache.
+const ART_FILES = ["title.webp", "scene-lobby.webp", "scene-dining.webp", "scene-library.webp", "scene-cellar.webp", "scene-room6.webp", "portrait-elsa.webp", "portrait-tomas.webp", "portrait-ada.webp", "portrait-osei.webp", "portrait-niko.webp"];
+for (const f of ART_FILES) { const im = new Image(); im.src = ASSET_BASE + f; }
+
+// Visual layer only: title screen shows the painted inn exterior, the
+// play screen shows the current room's painted scene. Guarded: if the
+// image markup is absent (older HTML), this is a no-op and the game plays
+// exactly as before.
+function setBackdropScene(screenId) {
+  if (screenId === "screen-title") {
+    const img = $("title-art");
+    if (img && !img.getAttribute("src")) img.src = ASSET_BASE + "title.webp";
+    return;
+  }
+  if (screenId === "screen-play") {
+    const img = $("stage-img");
+    if (img) img.src = ASSET_BASE + (SCENE_FILES[state.room] || SCENE_FILES.lobby);
+  }
+}
+
+const KNOWN_PORTRAITS = ["elsa", "tomas", "ada", "osei", "niko"];
+
+// Painted portrait for a suspect id; unknown ids get a plain dark panel
+// with a question mark. Only reachable for stub/test data — every real
+// suspect has a painted portrait.
+function portraitHTML(id) {
+  if (KNOWN_PORTRAITS.includes(id)) {
+    return `<img class="portrait-img" src="${ASSET_BASE}portrait-${id}.webp" alt="Portrait">`;
+  }
+  return `<div class="portrait-unknown" role="img" aria-label="Unknown person">?</div>`;
+}
+
+// Trust runs -2..+2; the face panel shows it as five dots.
+function trustDots(level) {
+  const filled = Math.max(0, Math.min(4, (level || 0) + 2));
+  let dots = "";
+  for (let i = 0; i < 5; i++) dots += `<span class="trust-dot${i < filled ? " filled" : ""}"></span>`;
+  return dots;
 }
 
 function save() {
@@ -614,7 +665,7 @@ function renderBriefing() {
     `<p id="verify-line" class="fineprint">Case verification: pending…</p>`;
   $("suspect-list").innerHTML = suspects.map(
     (s) =>
-      `<div class="suspect-card"><h3>${escapeHTML(s.name)}</h3><div class="role">${escapeHTML(s.role)}</div><p>${escapeHTML(s.personality)}</p></div>`
+      `<div class="suspect-card"><div class="portrait">${portraitHTML(s.id)}</div><h3>${escapeHTML(s.name)}</h3><div class="role">${escapeHTML(s.role)}</div><p>${escapeHTML(s.personality)}</p></div>`
   ).join("");
 }
 
@@ -743,12 +794,41 @@ function renderPlay() {
   );
 
   const room = getRoom(state.room);
+  setBackdropScene("screen-play");
+  // Face-to-face panel: who you are questioning, with trust. Guarded so
+  // older HTML without the panel still plays.
+  const faceSuspect = caseSuspect(state.suspect);
+  const fp = $("face-panel");
+  if (fp && faceSuspect) {
+    const trust = state.trust[faceSuspect.id] || 0;
+    fp.innerHTML =
+      `<div class="portrait">${portraitHTML(faceSuspect.id)}</div>` +
+      `<div class="face-info"><div class="face-name">${escapeHTML(faceSuspect.name)}</div>` +
+      `<div class="face-role">${escapeHTML(faceSuspect.role)}</div>` +
+      `<div class="face-trust"><span class="trust-dots">${trustDots(trust)}</span><span>${escapeHTML(trustLabel(trust))}</span></div></div>`;
+    fp.hidden = false;
+  }
   const roomClues = state.foundClues.map((id) => caseClue(id)).filter((c) => c && c.room === state.room);
   $("scene-text").innerHTML =
     `<h2>${escapeHTML(room.name)}</h2><p>${escapeHTML(room.description)}</p>` +
     (roomClues.length
       ? `<p><strong>Evidence found here:</strong></p><ul>${roomClues.map((c) => "<li>" + escapeHTML(c.text) + "</li>").join("")}</ul>`
       : `<p class="fineprint">No evidence found here yet. Try searching the room.</p>`);
+
+  // Clue rail: one gold slot per found clue, one slot per clue in the
+  // case. Empty slots show the goal; filled slots carry the clue text.
+  const rail = $("clue-rail");
+  if (rail) {
+    const total = (currentCase().clues || []).length || 10;
+    let slots = "";
+    for (let i = 0; i < total; i++) {
+      const clue = state.foundClues[i] ? caseClue(state.foundClues[i]) : null;
+      slots += clue
+        ? `<div class="clue-slot filled" title="${escapeHTML(clue.text)}">${i + 1}</div>`
+        : `<div class="clue-slot" title="Clue ${i + 1} not found yet"></div>`;
+    }
+    rail.innerHTML = slots;
+  }
 
   renderDialogue();
 

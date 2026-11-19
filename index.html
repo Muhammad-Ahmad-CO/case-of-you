@@ -20,6 +20,8 @@
 </script>
 </head>
 <body>
+
+
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark">§</span>
@@ -49,6 +51,8 @@
 
   <!-- TITLE -->
   <section id="screen-title" class="screen" hidden>
+    <img id="title-art" class="title-art" alt="" aria-hidden="true">
+    <div class="title-scrim" aria-hidden="true"></div>
     <p class="kicker">The Saltwind Inn &middot; One storm night &middot; One crime</p>
     <h1 class="display">The Case<br>of You</h1>
     <p class="lede">A storm night at The Saltwind Inn. The road out is flooded, five suspects remain inside — and the mystery will be written around <em>you</em>.</p>
@@ -117,8 +121,15 @@
         <ul id="suspect-nav" class="navlist"></ul>
       </aside>
       <div class="play-main">
-        <div id="scene-text" class="card scene"></div>
-        <div id="dialogue-log" class="dialogue" aria-live="polite"></div>
+        <div class="stage">
+          <img id="stage-img" class="stage-img" alt="">
+          <div id="scene-text" class="card scene scene-overlay"></div>
+          <div id="clue-rail" class="clue-rail" aria-label="Clues found"></div>
+          <div class="dialogue-bar">
+            <div id="face-panel" class="face-panel" hidden></div>
+            <div id="dialogue-log" class="dialogue" aria-live="polite"></div>
+          </div>
+        </div>
         <div id="suggested-questions" class="suggested"></div>
         <form id="form-ask" class="askbar">
           <input id="ask-input" type="text" autocomplete="off" maxlength="300" placeholder="Ask a question…" aria-label="Ask a question">

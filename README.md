@@ -48,7 +48,8 @@ Import this repository into [Vercel](https://vercel.com) (or any static host). N
 
 ```
 index.html      Screens, import map (Firebase JS SDK 13.2.0 via CDN)
-styles.css      Parchment / ink / oxblood design
+styles.css      Murder in the Alps style: painted scenes + portraits (assets/*.webp), brass on dark wood
+assets/         Painted art: 5 room scenes, 5 suspect portraits, title art (original, AI-painted)
 js/config.js    YOUR Firebase config (paste here, never in chat)
 js/ai.js        Firebase AI Logic engine: models, modes, schemas, scrubber, checks
 js/story.js     Story bible: rooms, suspects, clues, mysteries, endings
