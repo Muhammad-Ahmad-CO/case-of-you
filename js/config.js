@@ -27,7 +27,7 @@ export const APP_CHECK_CONFIG = {
   // reCAPTCHA Enterprise site key for the HOSTED site.
   // Get it from: Firebase console > Build > App Check > Apps > Web app.
   // Leave empty while testing on localhost (the debug provider is used).
-  recaptchaSiteKey: "",
+  recaptchaSiteKey: "b10_mY8tGOA9.XPKEeeuYNGVCMdFcAeQu1QTSJmeO2n3x",
 };
 
 export function isConfigured() {
